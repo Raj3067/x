@@ -1,0 +1,686 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   LegendaryBeasts — global styles
+
+   Motion architecture
+   -------------------
+   All animation is gated behind `html.motion-on`. The MotionProvider adds that
+   class only when motion is permitted, so:
+     - OS-level `prefers-reduced-motion: reduce`  -> class never added
+     - visitor uses the [MOTION] toggle           -> class removed
+   Because every effect below is scoped to `.motion-on`, a single class swap
+   kills scanlines, flicker, parallax, glitch, and drift at once. Nothing needs
+   to know about anything else.
+   ========================================================================== */
+
+/* ==========================================================================
+   Keyframes
+
+   Defined here rather than in tailwind.config.mjs on purpose. Tailwind only
+   emits keyframes from its config when a matching `animate-*` utility appears
+   in scanned markup — and every animation below is referenced from raw CSS in
+   this file, not from a class in JSX. Declaring them in the config would look
+   correct and emit nothing.
+   ========================================================================== */
+
+/* Whole-page brightness dip, like an old monitor. Mostly steady, with brief
+   drops so it reads as electrical rather than as a pulse. */
+@keyframes flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  93% {
+    opacity: 0.82;
+  }
+  94% {
+    opacity: 1;
+  }
+  97% {
+    opacity: 0.9;
+  }
+  98% {
+    opacity: 1;
+  }
+}
+
+/* The two glitch layers jitter on deliberately different timings so they never
+   sync up into a single clean shudder. */
+@keyframes glitch-a {
+  0%,
+  100% {
+    transform: translate(0);
+  }
+  20% {
+    transform: translate(-2px, 1px) skewX(-2deg);
+  }
+  40% {
+    transform: translate(2px, -1px) skewX(2deg);
+  }
+  60% {
+    transform: translate(-1px, -1px);
+  }
+  80% {
+    transform: translate(1px, 1px) skewX(-1deg);
+  }
+}
+
+@keyframes glitch-b {
+  0%,
+  100% {
+    transform: translate(0);
+  }
+  25% {
+    transform: translate(2px, -1px) skewX(2deg);
+  }
+  50% {
+    transform: translate(-2px, 1px) skewX(-2deg);
+  }
+  75% {
+    transform: translate(1px, 1px);
+  }
+}
+
+/* Fade-in for the lazily mounted WebGL background canvas. */
+@keyframes castle-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Boot screen exit. Duration must match BOOT_FADE_MS in BootScreen.jsx. */
+@keyframes boot-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* The bar's own shimmer, so a long stretch on one stage still looks alive. */
+@keyframes boot-sheen {
+  from {
+    transform: translate3d(-100%, 0, 0);
+  }
+  to {
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.88);
+  }
+}
+
+/* The CRT refresh band travelling down the viewport. */
+@keyframes scan-drift {
+  0% {
+    transform: translate3d(0, -100%, 0);
+  }
+  100% {
+    transform: translate3d(0, 100%, 0);
+  }
+}
+
+@layer base {
+  :root {
+    --ink: #05060a;
+    --surface: #0e1420;
+    --surface-2: #141c2c;
+    --edge: #22304a;
+    --primary: #22d3ee;
+    --secondary: #7c3aed;
+    --cta: #f43f5e;
+    --body: #e8f0ff;
+    --muted: #94a3b8;
+    --glow: #ff00ff;
+
+    /* Reserved so `scroll-margin-top` on anchors clears the sticky nav. */
+    --nav-h: 4.5rem;
+  }
+
+  html {
+    background-color: var(--ink);
+    color-scheme: dark;
+    /* Never let a wide table or grid push the page sideways. */
+    overflow-x: hidden;
+    /* Reserve the scrollbar's width whether or not a scrollbar is showing.
+       BootScreen locks `overflow: hidden` on this element while it is up; without
+       a stable gutter, the scrollbar vanishes on lock and returns on release,
+       widening and then narrowing the content by its width — a visible jump the
+       moment the site is uncovered. Unsupported on older Safari, where that jump
+       remains; harmless everywhere else. */
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    background-color: var(--ink);
+    color: var(--body);
+    font-family: var(--font-body), system-ui, sans-serif;
+    /* 16px minimum on mobile — smaller triggers iOS zoom-on-focus. */
+    font-size: 1rem;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display), Impact, sans-serif;
+    line-height: 1.1;
+    letter-spacing: 0.02em;
+  }
+
+  /* Visible focus ring on everything keyboard-reachable, in the accent colour
+     so it reads as part of the design rather than a browser default. */
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  /* Anchor targets clear the sticky header instead of hiding under it. */
+  [id] {
+    scroll-margin-top: calc(var(--nav-h) + 1rem);
+  }
+
+  ::selection {
+    background: var(--primary);
+    color: var(--ink);
+  }
+}
+
+/* ==========================================================================
+   Neon glow
+   ========================================================================== */
+
+@layer utilities {
+  .glow-primary {
+    text-shadow:
+      0 0 6px rgba(34, 211, 238, 0.55),
+      0 0 22px rgba(34, 211, 238, 0.3);
+  }
+
+  .glow-cta {
+    text-shadow:
+      0 0 6px rgba(244, 63, 94, 0.55),
+      0 0 22px rgba(244, 63, 94, 0.3);
+  }
+
+  /* Magenta only ever appears as a glow, never as text or a border colour —
+     it fails contrast against the near-black background. */
+  .glow-magenta {
+    text-shadow:
+      0 0 8px rgba(255, 0, 255, 0.5),
+      0 0 26px rgba(255, 0, 255, 0.28);
+  }
+
+  .edge-glow {
+    box-shadow:
+      inset 0 1px 0 rgba(232, 240, 255, 0.04),
+      0 0 24px -8px rgba(34, 211, 238, 0.35);
+  }
+
+  /* Thin gradient rule used to separate sections. */
+  .hr-neon {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(34, 211, 238, 0.5),
+      rgba(124, 58, 237, 0.4),
+      transparent
+    );
+  }
+}
+
+/* ==========================================================================
+   CRT treatment — scanlines, vignette, flicker
+
+   The overlay is one fixed, pointer-events:none element painted above the page
+   (z-index 40, under modals at 50). Two stacked gradients: fine horizontal
+   scanlines, plus a radial vignette darkening the corners.
+   ========================================================================== */
+
+.crt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  display: none;
+}
+
+.motion-on .crt-overlay {
+  display: block;
+}
+
+.crt-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.16) 0px,
+    rgba(0, 0, 0, 0.16) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  opacity: 0.55;
+}
+
+/* Corner vignette + a faint magenta/cyan tint at the edges. */
+.crt-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse at center,
+      transparent 45%,
+      rgba(5, 6, 10, 0.5) 100%
+    ),
+    radial-gradient(
+      ellipse at 15% 10%,
+      rgba(34, 211, 238, 0.05),
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at 85% 90%,
+      rgba(255, 0, 255, 0.045),
+      transparent 50%
+    );
+}
+
+/* A single bright band sweeping down the screen, like a CRT refresh. */
+.crt-sweep {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 45vh;
+  z-index: 40;
+  pointer-events: none;
+  display: none;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(34, 211, 238, 0.035),
+    transparent
+  );
+}
+
+.motion-on .crt-sweep {
+  display: block;
+  animation: scan-drift 7s linear infinite;
+  will-change: transform;
+}
+
+/* Whole-page brightness flicker. Applied to a wrapper rather than body so it
+   composites on its own layer and never triggers layout. */
+.motion-on .crt-flicker {
+  animation: flicker 6s steps(1, end) infinite;
+}
+
+/* ==========================================================================
+   Glitch — used on the wordmark
+
+   Two absolutely-positioned copies of the text sit behind the real one, offset
+   in cyan and magenta and jittered on independent timings. The real text stays
+   put so the layout never shifts and the label stays readable throughout.
+   `aria-hidden` on the copies keeps screen readers from reading it three times.
+   ========================================================================== */
+
+.glitch {
+  position: relative;
+  display: inline-block;
+}
+
+.glitch__layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+
+.glitch__layer--a {
+  color: var(--primary);
+  clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
+}
+
+.glitch__layer--b {
+  color: var(--glow);
+  clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%);
+}
+
+/* Idle: layers are barely visible, giving a permanent chromatic fringe.
+   Hover/focus: they jump to full strength and start jittering. */
+.motion-on .glitch__layer {
+  opacity: 0.28;
+}
+
+.motion-on .glitch:hover .glitch__layer,
+.motion-on .glitch:focus-visible .glitch__layer {
+  opacity: 0.85;
+}
+
+.motion-on .glitch:hover .glitch__layer--a,
+.motion-on .glitch:focus-visible .glitch__layer--a {
+  animation: glitch-a 2.4s steps(2, end) infinite;
+}
+
+.motion-on .glitch:hover .glitch__layer--b,
+.motion-on .glitch:focus-visible .glitch__layer--b {
+  animation: glitch-b 3.1s steps(2, end) infinite;
+}
+
+/* ==========================================================================
+   Site background
+
+   One fixed layer behind every page, mounted once in the root layout. Three
+   stacked children, back to front:
+
+     .site-backdrop__css     static gradients — the baseline everyone gets
+     .castle-canvas          the WebGL canvas, when the gate allows it
+     .site-backdrop__scrim   darkening pass so text keeps its contrast
+
+   z-index 0 with the page content at `position: relative` above it. It stays
+   below the CRT overlays (40), the nav (30), and modals (50) — the canvas must
+   never paint over chrome.
+   ========================================================================== */
+
+.site-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  /* Its own compositing layer, so a scrolling page never repaints the canvas. */
+  contain: strict;
+}
+
+.site-backdrop__css {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(ellipse at 50% 0%, rgba(124, 58, 237, 0.20), transparent 60%),
+    radial-gradient(ellipse at 15% 85%, rgba(34, 211, 238, 0.12), transparent 55%),
+    radial-gradient(ellipse at 85% 70%, rgba(244, 63, 94, 0.08), transparent 50%);
+  /* SiteBackdrop sets opacity:0 inline once the canvas has painted its first
+     frame, so the handover is a crossfade rather than a swap with a bare frame
+     in between. */
+  transition: opacity 800ms ease-out;
+}
+
+/* Sits above the canvas and below the content. Heaviest at the top and bottom
+   edges where the header and footer sit, lighter through the middle so the
+   castle is still visible behind body copy. */
+.site-backdrop__scrim {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    to bottom,
+    rgba(5, 6, 10, 0.86) 0%,
+    rgba(5, 6, 10, 0.55) 22%,
+    rgba(5, 6, 10, 0.62) 55%,
+    rgba(5, 6, 10, 0.88) 100%
+  );
+}
+
+/* The WebGL canvas host. Fades in on mount; it is only ever mounted when motion
+   is on, so it needs no .motion-on guard. */
+.castle-canvas {
+  animation: castle-fade-in 1200ms ease-out both;
+}
+
+/* Parallax: JS writes --parallax (a px offset) on scroll; the transform reads
+   it. Kept to transform-only so it never causes layout or paint thrash. */
+.parallax-layer {
+  transform: translate3d(0, 0, 0);
+}
+
+.motion-on .parallax-layer {
+  transform: translate3d(0, var(--parallax, 0px), 0);
+  will-change: transform;
+}
+
+/* ==========================================================================
+   Boot screen
+
+   Opaque full-viewport panel that hides the site until the WebGL castle has
+   painted its first frame. Server-rendered, so it is present in the very first
+   HTML rather than appearing after hydration — that is the whole point, since a
+   panel that arrives late would itself be the pop-in it exists to prevent.
+
+   z-index 60, above every other layer (modal 50, crt-overlay 40, nav 30,
+   backdrop 0). Nothing may ever paint over it while it is up.
+
+   Not gated on `.motion-on`: the two things that move here are a 620ms fade and
+   a caret blink, both of which are neutralised by the reduced-motion block at
+   the bottom of this file. Gating on the class would mean a visitor with motion
+   off gets no loading screen at all, and they are exactly the visitor whose
+   dismissal path (no canvas, ever) needs to be exercised.
+   ========================================================================== */
+
+.boot-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  /* Opaque, not translucent. The site behind this must not be readable through
+     it — a half-visible unfinished page is worse than a clean panel. */
+  background-color: var(--ink);
+  background-image:
+    radial-gradient(ellipse at 50% 12%, rgba(124, 58, 237, 0.22), transparent 62%),
+    radial-gradient(ellipse at 18% 88%, rgba(34, 211, 238, 0.14), transparent 58%),
+    radial-gradient(ellipse at 84% 78%, rgba(244, 63, 94, 0.09), transparent 52%);
+}
+
+.boot-screen--leaving {
+  animation: boot-fade-out 620ms ease-out both;
+  /* Clicks reach the site the moment the fade starts, so the last 620ms are not
+     dead time on an already-visible page. */
+  pointer-events: none;
+}
+
+.boot-screen__panel {
+  width: 100%;
+  max-width: 26rem;
+  text-align: center;
+}
+
+.boot-screen__eyebrow {
+  font-size: 0.6875rem;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--primary);
+  /* Optical: letter-spacing adds a trailing gap that pushes centred text left. */
+  text-indent: 0.42em;
+}
+
+.boot-screen__mark {
+  margin-top: 0.75rem;
+  font-family: var(--font-display), Impact, sans-serif;
+  font-size: clamp(1.75rem, 6vw, 2.75rem);
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  color: var(--body);
+  text-shadow:
+    0 0 8px rgba(34, 211, 238, 0.45),
+    0 0 28px rgba(124, 58, 237, 0.3);
+}
+
+.boot-screen__track {
+  position: relative;
+  overflow: hidden;
+  height: 0.375rem;
+  margin-top: 1.75rem;
+  border-radius: 9999px;
+  background: rgba(34, 48, 74, 0.75);
+  box-shadow: inset 0 0 0 1px rgba(232, 240, 255, 0.06);
+}
+
+.boot-screen__fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(
+    90deg,
+    var(--secondary),
+    var(--primary) 78%,
+    #a5f3fc
+  );
+  box-shadow: 0 0 14px -2px rgba(34, 211, 238, 0.8);
+  /* No transition. BootScreen eases the width itself on a rAF loop, and a CSS
+     transition on top of a target that moves every frame restarts continuously —
+     the bar ends up lagging by the transition's own duration. */
+}
+
+/* Travelling highlight, so the bar still reads as working during a long stage.
+   On the track rather than the fill: the fill is short early on, and a sheen
+   confined to it would be invisible for the first second. */
+.boot-screen__track::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(232, 240, 255, 0.16),
+    transparent
+  );
+  animation: boot-sheen 1.6s linear infinite;
+}
+
+.boot-screen__stage {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.boot-screen__stage-pct {
+  /* Tabular figures, so a three-digit count does not shuffle the label as it
+     climbs. Zero-padded in the JSX for the same reason. */
+  font-variant-numeric: tabular-nums;
+  color: var(--primary);
+}
+
+/* ==========================================================================
+   Entrance reveal
+
+   Sections start faded/offset and animate in once observed. Without motion the
+   `.is-visible` class still lands but the transition is a no-op, so content is
+   always visible either way — never hidden behind an animation that may not run.
+   ========================================================================== */
+
+.reveal {
+  opacity: 1;
+}
+
+.motion-on .reveal {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  transition:
+    opacity 480ms ease-out,
+    transform 480ms ease-out;
+}
+
+.motion-on .reveal.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+/* ==========================================================================
+   Live indicator
+   ========================================================================== */
+
+.live-dot {
+  position: relative;
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: #4ade80;
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.8);
+}
+
+.motion-on .live-dot {
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+
+/* ==========================================================================
+   Belt and braces
+
+   Every effect above is already gated on `.motion-on`, which MotionProvider
+   withholds when the OS asks for reduced motion. This block is a second,
+   independent guarantee: even if JS fails to load or the class is applied by
+   mistake, the browser's own preference still wins.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .crt-overlay,
+  .crt-sweep,
+  /* Should never be mounted here — SiteBackdrop gates on the same preference —
+     but if the JS gate ever regressed, this stops a moving canvas regardless. */
+  .castle-canvas {
+    display: none !important;
+  }
+
+  /* The boot screen itself stays — it is how a reduced-motion visitor learns the
+     page is coming, and it dismisses immediately for them because SiteBackdrop
+     reports 'skipped' rather than mounting a canvas. Only the bar's travelling
+     sheen goes; the exit fade is already flattened to 0.001ms by the rule above,
+     which is the behaviour we want — instant dismissal, not a missing one.
+
+     The fill's own width is eased in JS, not CSS, so it cannot be stopped from
+     here. It does not need to be: a reduced-motion visitor is settled on the
+     first effect tick, so the bar runs straight to 100% and the panel leaves
+     inside the minimum-duration floor. */
+  .boot-screen__track::after {
+    animation: none !important;
+  }
+
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .parallax-layer {
+    transform: none !important;
+  }
+}
